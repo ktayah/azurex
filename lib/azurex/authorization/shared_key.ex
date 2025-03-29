@@ -6,6 +6,8 @@ defmodule Azurex.Authorization.SharedKey do
   As defined in 26 November 2019
   """
 
+  import Azurex.Authorization.Utils
+
   @spec sign(HTTPoison.Request.t(), keyword) :: HTTPoison.Request.t()
   def sign(request, opts \\ []) do
     storage_account_name = Keyword.fetch!(opts, :storage_account_name)
@@ -56,26 +58,6 @@ defmodule Azurex.Authorization.SharedKey do
       |> Enum.join("\n")
 
     put_signature(request, signature, storage_account_name, storage_account_key)
-  end
-
-  def put_standard_headers(request, content_type, date) do
-    headers =
-      if content_type,
-        do: [{"content-type", content_type} | request.headers],
-        else: request.headers
-
-    headers = [
-      {"x-ms-version", "2023-01-03"},
-      {"x-ms-date", format_date(date)}
-      | headers
-    ]
-
-    struct(request, headers: headers)
-  end
-
-  def format_date(%DateTime{zone_abbr: "UTC"} = date_time) do
-    date_time
-    |> Calendar.strftime("%a, %d %b %Y %H:%M:%S GMT")
   end
 
   defp get_method(request), do: request.method |> Atom.to_string() |> String.upcase()
