@@ -56,7 +56,7 @@ defmodule Azurex.Blob.Config do
   defp try_account_key_conn_string(value), do: value
 
   defp try_service_principal(nil) do
-    {missing_values, values} =
+    {_missing_values, values} =
       [:storage_client_id, :storage_client_secret, :storage_tenant_id]
       |> Enum.map(&Keyword.get(conf(), &1))
       |> Enum.split_with(&is_nil/1)
@@ -65,31 +65,52 @@ defmodule Azurex.Blob.Config do
       [client_id, client_secret, tenant] ->
         {:service_principal, client_id, client_secret, tenant}
 
-      [] ->
-        nil
-
       _ ->
-        raise "Azurex.Blob.Config: Missing values for service principal #{Enum.join(missing_values, ", ")}"
+        nil
     end
   end
 
   defp try_service_principal(value), do: value
 
+  defp try_managed_identity(nil) do
+    {missing_values, values} =
+      [:storage_client_id, :storage_tenant_id, :storage_identity_token]
+      |> Enum.map(&Keyword.get(conf(), &1))
+      |> Enum.split_with(&is_nil/1)
+
+    case values do
+      [client_id, tenant, identity_token] ->
+        {:managed_identity, client_id, tenant, identity_token}
+
+      [] ->
+        nil
+
+      _ ->
+        raise "Azurex.Blob.Config: Missing values for managed identity #{Enum.join(missing_values, ", ")}"
+    end
+  end
+
+  defp try_managed_identity(value), do: value
+
   @doc """
-  Investigate which authentication method is set and return the appropriate tuple
-  or raise an error if miss configured.
+  Azure storage account access key. Base64 encoded, as provided by azure UI.
+  Required if `storage_account_connection_string` not set.
   """
   @spec auth_method() ::
-          {:service_principal, binary(), binary(), binary()} | {:account_key, binary()}
+          {:service_principal, binary(), binary(), binary()}
+          | {:account_key, binary()}
+          | {:managed_identity, binary(), binary(), binary()}
   def auth_method do
     nil
     |> try_account_key_env
     |> try_account_key_conn_string
-    |> try_service_principal ||
+    |> try_service_principal
+    |> try_managed_identity ||
       raise """
       Azurex.Blob.Config: Missing credentials settings.
       Either set storage account key with: `storage_account_key` or `storage_account_connection_string`
       Or set service principal with: `storage_client_id`, `storage_client_secret` and `storage_tenant_id`
+      Or set managed identity with: `storage_client_id`, `storage_tenant_id`, and `storage_identity_token`
       """
   end
 
