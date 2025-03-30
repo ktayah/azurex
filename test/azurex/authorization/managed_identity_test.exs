@@ -4,6 +4,8 @@ defmodule Azurex.Authorization.ManagedIdentityTest do
 
   alias Azurex.Authorization.ManagedIdentity
 
+  import ExUnit.CaptureLog
+
   @expected_access_token Base.encode64("token")
 
   setup do
@@ -109,20 +111,38 @@ defmodule Azurex.Authorization.ManagedIdentityTest do
       end
     end
 
-    # test "Failure", %{bypass: bypass} do
-    #   Bypass.expect_once(bypass, "POST", "/tenant_id/oauth2/v2.0/token", fn conn ->
-    #     Plug.Conn.resp(conn, 403, "Not authorized")
-    #   end)
+    test "Failure", %{bypass: bypass} do
+      federated_token_file_path = create_token_file()
 
-    #   input_request = generate_request()
+      Bypass.expect_once(bypass, "POST", "/tenant_id/oauth2/v2.0/token", fn conn ->
+        Plug.Conn.resp(conn, 403, "Not authorized")
+      end)
 
-    #   output_request =
-    #     ServicePrincipal.add_bearer_token(
-    #       input_request,
-    #       "client_id",
-    #       "client_secret",
-    #       "tenant_id"
-    #     )
-    # end
+      input_request = generate_request()
+
+      {output_request, log} =
+        with_log(fn ->
+          ManagedIdentity.add_bearer_token(
+            input_request,
+            "client_id",
+            "tenant_id",
+            federated_token_file_path
+          )
+        end)
+
+      assert output_request == %HTTPoison.Request{
+               body: "sample body",
+               headers: [
+                 {"Authorization", "Bearer No token"},
+                 {"x-ms-blob-type", "BlockBlob"}
+               ],
+               method: :put,
+               options: [recv_timeout: :infinity],
+               params: %{},
+               url: "https://example.com/sample-path"
+             }
+
+      assert log =~ "Failed to fetch bearer token. Reason: 403: Not authorize"
+    end
   end
 end
