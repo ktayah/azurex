@@ -56,6 +56,7 @@ defmodule Azurex.Blob.SharedAccessSignature.UserDelegationSAS do
     |> HTTPoison.request()
     |> case do
       {:ok, %{body: xml, status_code: 200}} -> {:ok, xml}
+      _ -> raise "Unable to obtain user delegation key"
     end
   end
 
