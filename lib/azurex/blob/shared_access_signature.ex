@@ -1,10 +1,9 @@
 defmodule Azurex.Blob.SharedAccessSignature do
   @moduledoc """
   Implements shared access signatures (SAS) on Blob Storage resources.
-
-  Based on:
-  https://learn.microsoft.com/en-us/rest/api/storageservices/create-service-sas
   """
+  alias Azurex.Blob.SharedAccessSignature.UserDelegationSAS
+  alias Azurex.Blob.SharedAccessSignature.ServiceSAS
   alias Azurex.Blob.Config
 
   @doc """
@@ -33,127 +32,29 @@ defmodule Azurex.Blob.SharedAccessSignature do
     expiry = Keyword.get(opts, :expiry, {:second, 3600})
     resource = Path.join(container, resource)
 
-    account_key =
+    token =
       case Config.auth_method() do
-        {:account_key, key} -> key
-        _ -> raise "Only account key authentication is supported for SAS"
+        {:account_key, account_key} ->
+          ServiceSAS.build_token(
+            resource_type,
+            resource,
+            {from, expiry},
+            permissions,
+            Azurex.Blob.Config.storage_account_name(),
+            account_key
+          )
+
+        {auth_method, _client_id, _tenant_id, _identity_token}
+        when auth_method in [:service_principal, :managed_identity] ->
+          UserDelegationSAS.build_token(
+            resource_type,
+            resource,
+            {from, expiry},
+            permissions,
+            Azurex.Blob.Config.storage_account_name()
+          )
       end
 
-    token =
-      build_token(
-        resource_type,
-        resource,
-        {from, expiry},
-        permissions,
-        Azurex.Blob.Config.storage_account_name(),
-        account_key
-      )
-
     "#{Path.join(base_url, resource)}?#{token}"
-  end
-
-  defp build_token(
-         resource_type,
-         resource,
-         {from, expiry},
-         permissions,
-         storage_account_name,
-         storage_account_key
-       ) do
-    URI.encode_query(
-      sv: sv(),
-      st: st(from),
-      se: se(from, expiry),
-      sr: sr(resource_type),
-      sp: sp(permissions),
-      sig:
-        signature(
-          resource_type,
-          resource,
-          {from, expiry},
-          permissions,
-          storage_account_name,
-          storage_account_key
-        )
-    )
-  end
-
-  defp signature(
-         resource_type,
-         resource,
-         {from, expiry},
-         permissions,
-         storage_account_name,
-         storage_account_key
-       ) do
-    signature =
-      Enum.join(
-        [
-          sp(permissions),
-          st(from),
-          se(from, expiry),
-          canonicalized_resource(resource, storage_account_name),
-          "",
-          "",
-          "",
-          sv(),
-          sr(resource_type),
-          "",
-          "",
-          "",
-          "",
-          "",
-          "",
-          ""
-        ],
-        "\n"
-      )
-
-    :crypto.mac(:hmac, :sha256, storage_account_key, signature) |> Base.encode64()
-  end
-
-  defp sv, do: "2020-12-06"
-
-  defp st(date_time), do: date_time |> DateTime.truncate(:second) |> DateTime.to_iso8601()
-
-  defp se(date_time, {unit, amount}),
-    do:
-      date_time
-      |> DateTime.add(amount, unit)
-      |> DateTime.truncate(:second)
-      |> DateTime.to_iso8601()
-
-  @permissions_order ~w(r a c w d x l t m e o p)
-  defp sp(permissions) do
-    permissions
-    |> Enum.map(fn
-      :read -> "r"
-      :add -> "a"
-      :create -> "c"
-      :write -> "w"
-      :delete -> "d"
-      :delete_version -> "x"
-      :permanent_delete -> "y"
-      :list -> "l"
-      :tags -> "t"
-      :find -> "f"
-      :move -> "m"
-      :execute -> "e"
-      :ownership -> "o"
-      :permissions -> "p"
-      :set_immutability_policy -> "i"
-    end)
-    |> Enum.sort_by(fn p -> Enum.find_index(@permissions_order, &(&1 == p)) end)
-    |> Enum.join("")
-  end
-
-  defp sr(:blob), do: "b"
-  defp sr(:blob_version), do: "bv"
-  defp sr(:blob_snapshot), do: "bs"
-  defp sr(:container), do: "c"
-  defp sr(:directory), do: "d"
-
-  defp canonicalized_resource(resource, storage_account_name) do
-    Path.join(["/blob", storage_account_name, resource])
   end
 end
