@@ -4,6 +4,7 @@ defmodule Azurex.Authorization.ManagedIdentityTest do
 
   alias Azurex.Authorization.ManagedIdentity
 
+  import Azurex.ManagedIdentityHelpers
   import ExUnit.CaptureLog
 
   @expected_access_token Base.encode64("token")
@@ -26,14 +27,6 @@ defmodule Azurex.Authorization.ManagedIdentityTest do
       ],
       options: [recv_timeout: :infinity]
     }
-  end
-
-  defp create_token_file do
-    federated_token_file_path = Path.join([System.tmp_dir(), "temp_file"])
-    :ok = File.touch!(federated_token_file_path)
-    :ok = File.write!(federated_token_file_path, "identity_token")
-
-    federated_token_file_path
   end
 
   defp prepare_auth_endpoint(bypass, token_expires_in) do
