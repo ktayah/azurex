@@ -44,7 +44,8 @@ defmodule Azurex.Blob.SharedAccessSignature do
             account_key
           )
 
-        {:managed_identity, _client_id, _tenant_id, _identity_token} ->
+        {auth_method, _client_id, _tenant_id, _identity_token}
+        when auth_method in [:service_principal, :managed_identity] ->
           UserDelegationSAS.build_token(
             resource_type,
             resource,
@@ -52,9 +53,6 @@ defmodule Azurex.Blob.SharedAccessSignature do
             permissions,
             Azurex.Blob.Config.storage_account_name()
           )
-
-        _ ->
-          raise "Only account key authentication is supported for SAS"
       end
 
     "#{Path.join(base_url, resource)}?#{token}"
