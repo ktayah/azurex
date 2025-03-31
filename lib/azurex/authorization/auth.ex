@@ -2,6 +2,9 @@ defmodule Azurex.Authorization.Auth do
   alias Azurex.Blob.Config
   alias Azurex.Authorization.SharedKey
   alias Azurex.Authorization.ServicePrincipal
+  alias Azurex.Authorization.ManagedIdentity
+
+  import Azurex.Authorization.Utils
 
   @doc """
   Adds authentication header to a given request based on the configured auth method.
@@ -24,7 +27,12 @@ defmodule Azurex.Authorization.Auth do
           client_secret,
           tenant
         )
-        |> SharedKey.put_standard_headers(content_type, DateTime.utc_now())
+        |> put_standard_headers(content_type, DateTime.utc_now())
+
+      {:managed_identity, client_id, tenant, identity_token} ->
+        request
+        |> ManagedIdentity.add_bearer_token(client_id, tenant, identity_token)
+        |> put_standard_headers(content_type, DateTime.utc_now())
     end
   end
 end
