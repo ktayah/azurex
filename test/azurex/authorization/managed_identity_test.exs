@@ -14,6 +14,9 @@ defmodule Azurex.Authorization.ManagedIdentityTest do
 
     Application.put_env(:azurex, Azurex.Blob.Config, auth_url: "http://localhost:#{bypass.port}")
 
+    # Clear cache before each test
+    :ets.delete_all_objects(:bearer_token_cache)
+
     {:ok, bypass: bypass}
   end
 
