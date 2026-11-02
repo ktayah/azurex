@@ -3,12 +3,17 @@
 All notable changes to this project will be documented in this file (at least to the extent possible, I am not infallible sadly).
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## Unreleased
+## 1.2.1
+
+### Added/Changed
+
+- Added support for HTTPoison 3 (hackney 4). HTTPoison 1.8 and 2.2+ remain supported.
+
+## 1.2.0
 
 ### Added/Changed
 
 - Added support for multiple Azure instances
-- Added support for HTTPoison 3 (hackney 4). HTTPoison 1.8 and 2.2+ remain supported.
 
 ### Fixed
 
